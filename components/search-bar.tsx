@@ -14,10 +14,10 @@ export function SearchBar() {
 
   useEffect(() => {
     const q = searchParams.get("q")
-    if (q && q !== query) {
+    if (q) {
       setQuery(q)
     }
-  }, [searchParams, query])
+  }, [searchParams])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,7 +26,8 @@ export function SearchBar() {
     }
   }
 
-  const handleClear = () => {
+  const handleClear = (e: React.MouseEvent) => {
+    e.preventDefault()
     setQuery("")
     router.push("/search")
   }
@@ -55,7 +56,7 @@ export function SearchBar() {
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />

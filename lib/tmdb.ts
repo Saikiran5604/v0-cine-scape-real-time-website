@@ -1,5 +1,6 @@
 const TMDB_BASE_URL = "https://api.themoviedb.org/3"
 const TMDB_ACCESS_TOKEN = process.env.TMDB_ACCESS_TOKEN
+const TMDB_API_KEY = process.env.TMDB_API_KEY
 
 const DEMO_MOVIES = [
   {
@@ -83,7 +84,38 @@ const DEMO_MOVIES = [
 ]
 
 function hasValidApiKey(): boolean {
-  return TMDB_ACCESS_TOKEN && TMDB_ACCESS_TOKEN !== "your_tmdb_access_token_here" && TMDB_ACCESS_TOKEN?.trim() !== ""
+  const hasToken =
+    TMDB_ACCESS_TOKEN && TMDB_ACCESS_TOKEN !== "your_tmdb_access_token_here" && TMDB_ACCESS_TOKEN?.trim() !== ""
+  const hasKey = TMDB_API_KEY && TMDB_API_KEY !== "your_tmdb_api_key_here" && TMDB_API_KEY?.trim() !== ""
+  return hasToken || hasKey
+}
+
+function getAuthHeader(): Record<string, string> {
+  if (TMDB_ACCESS_TOKEN && TMDB_ACCESS_TOKEN.trim() !== "") {
+    return {
+      Authorization: `Bearer ${TMDB_ACCESS_TOKEN}`,
+      "Content-Type": "application/json;charset=utf-8",
+    }
+  }
+  return {
+    "Content-Type": "application/json;charset=utf-8",
+  }
+}
+
+function buildUrl(endpoint: string, params?: Record<string, string>): string {
+  const url = new URL(`${TMDB_BASE_URL}${endpoint}`)
+
+  if (TMDB_API_KEY && TMDB_API_KEY.trim() !== "") {
+    url.searchParams.set("api_key", TMDB_API_KEY)
+  }
+
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value)
+    })
+  }
+
+  return url.toString()
 }
 
 export interface Movie {
@@ -110,21 +142,22 @@ export interface TrendingResponse {
 export async function getTrendingMovies(timeWindow: "day" | "week" = "day"): Promise<TrendingResponse> {
   try {
     if (!hasValidApiKey()) {
-      console.warn("[CineScape] TMDB Access Token not configured. Using demo data.")
+      console.warn("[CineScape] TMDB credentials not configured. Using demo data.")
       return { results: DEMO_MOVIES, page: 1, total_pages: 1, total_results: DEMO_MOVIES.length, demo: true }
     }
 
-    const res = await fetch(`${TMDB_BASE_URL}/trending/movie/${timeWindow}`, {
-      headers: {
-        Authorization: `Bearer ${TMDB_ACCESS_TOKEN}`,
-        "Content-Type": "application/json;charset=utf-8",
-      },
+    const url = buildUrl(`/trending/movie/${timeWindow}`)
+    const res = await fetch(url, {
+      headers: getAuthHeader(),
       next: { revalidate: 3600 },
     })
-    if (!res.ok) throw new Error("Failed to fetch trending movies")
+    if (!res.ok) {
+      console.error(`[CineScape] TMDB API error: ${res.status}`)
+      throw new Error("Failed to fetch trending movies")
+    }
     return res.json()
   } catch (error) {
-    console.error("TMDB API Error:", error)
+    console.error("[CineScape] Trending movies error:", error)
     return { results: DEMO_MOVIES, page: 1, total_pages: 1, total_results: DEMO_MOVIES.length, demo: true }
   }
 }
@@ -132,8 +165,7 @@ export async function getTrendingMovies(timeWindow: "day" | "week" = "day"): Pro
 export async function searchMovies(query: string): Promise<TrendingResponse> {
   try {
     if (!hasValidApiKey()) {
-      console.warn("[CineScape] TMDB Access Token not configured. Using demo data.")
-      // Filter demo movies by search query
+      console.warn("[CineScape] TMDB credentials not configured. Using demo data.")
       const filtered = DEMO_MOVIES.filter(
         (movie) =>
           movie.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -142,17 +174,18 @@ export async function searchMovies(query: string): Promise<TrendingResponse> {
       return { results: filtered, page: 1, total_pages: 1, total_results: filtered.length, demo: true }
     }
 
-    const res = await fetch(`${TMDB_BASE_URL}/search/movie?query=${encodeURIComponent(query)}&page=1`, {
-      headers: {
-        Authorization: `Bearer ${TMDB_ACCESS_TOKEN}`,
-        "Content-Type": "application/json;charset=utf-8",
-      },
+    const url = buildUrl("/search/movie", { query, page: "1" })
+    const res = await fetch(url, {
+      headers: getAuthHeader(),
       next: { revalidate: 3600 },
     })
-    if (!res.ok) throw new Error("Failed to search movies")
+    if (!res.ok) {
+      console.error(`[CineScape] TMDB API error: ${res.status}`)
+      throw new Error("Failed to search movies")
+    }
     return res.json()
   } catch (error) {
-    console.error("TMDB API Error:", error)
+    console.error("[CineScape] Search movies error:", error)
     const filtered = DEMO_MOVIES.filter(
       (movie) =>
         movie.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -185,17 +218,18 @@ export async function getMovieDetails(movieId: number) {
       return null
     }
 
-    const res = await fetch(`${TMDB_BASE_URL}/movie/${movieId}?append_to_response=credits,videos`, {
-      headers: {
-        Authorization: `Bearer ${TMDB_ACCESS_TOKEN}`,
-        "Content-Type": "application/json;charset=utf-8",
-      },
+    const url = buildUrl(`/movie/${movieId}`, { append_to_response: "credits,videos" })
+    const res = await fetch(url, {
+      headers: getAuthHeader(),
       next: { revalidate: 86400 },
     })
-    if (!res.ok) throw new Error("Failed to fetch movie details")
+    if (!res.ok) {
+      console.error(`[CineScape] TMDB API error: ${res.status}`)
+      throw new Error("Failed to fetch movie details")
+    }
     return res.json()
   } catch (error) {
-    console.error("TMDB API Error:", error)
+    console.error("[CineScape] Movie details error:", error)
     return null
   }
 }
