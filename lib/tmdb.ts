@@ -207,7 +207,7 @@ export async function getMovieDetails(movieId: number) {
       console.log("[v0] Valid API key found, fetching from TMDB API")
       const url = buildUrl(`/movie/${movieId}`, { append_to_response: "credits,videos" })
 
-      console.log("[v0] Fetching from TMDB API...")
+      console.log("[v0] Fetching from TMDB API URL:", url.replace(/api_key=[^&]+/, "api_key=REDACTED"))
 
       const res = await fetch(url, {
         headers: getAuthHeader(),
@@ -216,18 +216,18 @@ export async function getMovieDetails(movieId: number) {
 
       console.log("[v0] TMDB API Response status:", res.status)
 
-      if (!res.ok) {
+      if (res.ok) {
+        const data = await res.json()
+        console.log("[v0] Successfully fetched movie from API:", data.title || `ID ${movieId}`)
+        return data
+      } else {
         const errorText = await res.text()
         console.error(`[v0] TMDB API error: ${res.status} ${res.statusText}`)
         console.error("[v0] Error response:", errorText)
         console.log("[v0] Falling back to demo data due to API error")
-      } else {
-        const data = await res.json()
-        console.log("[v0] Successfully fetched movie from API:", data.title || `ID ${movieId}`)
-        return data
       }
     } else {
-      console.log("[v0] No valid API key configured")
+      console.log("[v0] No valid API key configured, using demo data")
     }
 
     console.log("[v0] Using demo/placeholder data")
@@ -257,7 +257,7 @@ export async function getMovieDetails(movieId: number) {
       }
     }
 
-    console.log("[v0] Movie ID not in demo data, creating generic movie:", movieId)
+    console.log("[v0] Movie ID not in demo data, creating generic placeholder movie:", movieId)
     return {
       id: movieId,
       title: `Movie #${movieId}`,
@@ -275,11 +275,7 @@ export async function getMovieDetails(movieId: number) {
       revenue: 150000000,
       runtime: 120,
       credits: {
-        cast: [
-          { id: 1, name: "Actor One", character: "Main Character", profile_path: null },
-          { id: 2, name: "Actor Two", character: "Supporting Role", profile_path: null },
-          { id: 3, name: "Actor Three", character: "Villain", profile_path: null },
-        ],
+        cast: [],
       },
       videos: {
         results: [],
@@ -287,7 +283,30 @@ export async function getMovieDetails(movieId: number) {
     }
   } catch (error) {
     console.error("[v0] Movie details error:", error)
-    return null
+    console.log("[v0] Returning placeholder due to error")
+    return {
+      id: movieId,
+      title: `Movie #${movieId}`,
+      overview: "An error occurred while fetching this movie. Please try again later.",
+      poster_path: `/placeholder.svg?height=500&width=342&query=movie+poster`,
+      backdrop_path: `/placeholder.svg?height=720&width=1280&query=movie+backdrop`,
+      release_date: "2024-01-01",
+      vote_average: 7.5,
+      vote_count: 1000,
+      genres: [
+        { id: 18, name: "Drama" },
+        { id: 28, name: "Action" },
+      ],
+      budget: 50000000,
+      revenue: 150000000,
+      runtime: 120,
+      credits: {
+        cast: [],
+      },
+      videos: {
+        results: [],
+      },
+    }
   }
 }
 
