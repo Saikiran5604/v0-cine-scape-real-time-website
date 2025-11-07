@@ -47,9 +47,30 @@ export default function LoginPage() {
         return
       }
 
-      console.log("[v0] Login successful, redirecting to home")
-      router.push("/")
-      router.refresh()
+      if (data.session && data.user) {
+        console.log("[v0] Login successful, session created")
+
+        try {
+          const ensureUserResponse = await fetch("/api/users/ensure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: data.user.id, email: data.user.email }),
+          })
+
+          if (ensureUserResponse.ok) {
+            console.log("[v0] User record ensured in public.users table")
+          } else {
+            console.error("[v0] Failed to ensure user record")
+          }
+        } catch (userRecordError) {
+          console.error("[v0] Exception ensuring user record:", userRecordError)
+        }
+
+        console.log("[v0] Redirecting to home page")
+        window.location.href = "/"
+      } else {
+        setError("Login failed. Please try again.")
+      }
     } catch (err) {
       console.error("[v0] Login exception:", err)
       setError("An error occurred. Please try again.")

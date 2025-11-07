@@ -16,6 +16,7 @@ export default function MovieDetailPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [isInWatchlist, setIsInWatchlist] = useState(false)
+  const [watchlistMessage, setWatchlistMessage] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -54,7 +55,7 @@ export default function MovieDetailPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser()
-        console.log("[v0] User:", user)
+        console.log("[v0] User:", user ? "logged in" : "not logged in")
         setUser(user)
 
         if (user && movieId) {
@@ -65,6 +66,7 @@ export default function MovieDetailPage() {
             .eq("movie_id", movieId)
             .single()
 
+          console.log("[v0] Watchlist check:", watchlist ? "in watchlist" : "not in watchlist")
           setIsInWatchlist(!!watchlist)
         }
       } catch (error) {
@@ -87,17 +89,78 @@ export default function MovieDetailPage() {
 
     try {
       if (isInWatchlist) {
-        await supabase.from("watchlist").delete().eq("user_id", user.id).eq("movie_id", movieId)
+        const { error } = await supabase.from("watchlist").delete().eq("user_id", user.id).eq("movie_id", movieId)
+
+        if (error) {
+          console.error("[v0] Error removing from watchlist:", error)
+          setWatchlistMessage("Failed to remove from watchlist")
+          return
+        }
+
         setIsInWatchlist(false)
+        setWatchlistMessage("Removed from watchlist!")
+        console.log("[v0] Successfully removed from watchlist")
       } else {
-        await supabase.from("watchlist").insert({
+        const ensureUserResponse = await fetch("/api/users/ensure", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.id, email: user.email }),
+        })
+
+        if (!ensureUserResponse.ok) {
+          console.error("[v0] Failed to ensure user exists")
+          setWatchlistMessage("Failed to add to watchlist. Please try again.")
+          setTimeout(() => setWatchlistMessage(null), 3000)
+          return
+        }
+
+        const { error: movieInsertError } = await supabase.from("movies").upsert(
+          {
+            id: movieId,
+            tmdb_id: movieId,
+            title: movie.title || "Unknown Title",
+            description: movie.overview || null,
+            poster_path: movie.poster_path || null,
+            backdrop_path: movie.backdrop_path || null,
+            release_date: movie.release_date || null,
+            rating: movie.vote_average || null,
+            vote_count: movie.vote_count || null,
+            genre_ids: movie.genres ? movie.genres.map((g: any) => g.id) : [],
+            popularity: movie.popularity || null,
+          },
+          {
+            onConflict: "id",
+          },
+        )
+
+        if (movieInsertError) {
+          console.error("[v0] Error inserting movie:", movieInsertError)
+          setWatchlistMessage("Failed to add to watchlist")
+          setTimeout(() => setWatchlistMessage(null), 3000)
+          return
+        }
+
+        const { error } = await supabase.from("watchlist").insert({
           user_id: user.id,
           movie_id: movieId,
         })
+
+        if (error) {
+          console.error("[v0] Error adding to watchlist:", error)
+          setWatchlistMessage("Failed to add to watchlist")
+          return
+        }
+
         setIsInWatchlist(true)
+        setWatchlistMessage("Added to watchlist!")
+        console.log("[v0] Successfully added to watchlist")
       }
+
+      setTimeout(() => setWatchlistMessage(null), 3000)
     } catch (error) {
       console.error("[v0] Error updating watchlist:", error)
+      setWatchlistMessage("An error occurred")
+      setTimeout(() => setWatchlistMessage(null), 3000)
     }
   }
 
@@ -140,12 +203,19 @@ export default function MovieDetailPage() {
       <Header />
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {watchlistMessage && (
+          <div className="mb-4 p-4 rounded-lg bg-primary/10 border border-primary/20 text-center">
+            <p className="text-foreground font-medium">{watchlistMessage}</p>
+          </div>
+        )}
+
         <MovieDetailsHero
           movie={movie}
           isInWatchlist={isInWatchlist}
           onWatchlistToggle={user ? handleWatchlistToggle : undefined}
           isLoading={isLoading}
         />
+
         <MovieDetailsContent movie={movie} genres={movie.genres || []} />
       </div>
     </div>

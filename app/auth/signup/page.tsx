@@ -44,24 +44,64 @@ export default function SignupPage() {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo:
+            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
+        },
       })
 
       console.log("[v0] Signup response:", { data, error })
 
       if (error) {
         console.error("[v0] Signup error:", error)
-        setError(error.message)
+
+        if (error.message.includes("rate limit") || error.status === 429) {
+          setError(
+            "Too many signup attempts. Please try again in a few minutes, or check if you already have an account and try logging in instead.",
+          )
+        } else if (error.message.includes("already registered")) {
+          setError("This email is already registered. Please try logging in instead.")
+        } else {
+          setError(error.message)
+        }
         return
       }
 
-      if (data.user && data.session) {
-        console.log("[v0] User signed up and logged in immediately")
-        router.push("/")
-        router.refresh()
+      if (data.user) {
+        console.log("[v0] User created successfully:", data.user.id)
+
+        try {
+          const ensureUserResponse = await fetch("/api/users/ensure", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: data.user.id, email: data.user.email }),
+          })
+
+          if (ensureUserResponse.ok) {
+            console.log("[v0] User record created in public.users table")
+          } else {
+            console.error("[v0] Failed to create user record")
+          }
+        } catch (userRecordError) {
+          console.error("[v0] Exception creating user record:", userRecordError)
+        }
+
+        if (data.session) {
+          console.log("[v0] User logged in immediately, redirecting to home")
+          setSuccess(true)
+          setTimeout(() => {
+            window.location.href = "/"
+          }, 1500)
+        } else {
+          // Email confirmation required
+          console.log("[v0] Email confirmation required")
+          setSuccess(true)
+          setTimeout(() => {
+            router.push("/auth/sign-up-success")
+          }, 2000)
+        }
       } else {
-        // Email confirmation still enabled, redirect to success page
-        console.log("[v0] Email confirmation required")
-        router.push("/auth/sign-up-success")
+        setError("Signup failed. Please try again.")
       }
     } catch (err) {
       console.error("[v0] Signup exception:", err)
@@ -81,7 +121,8 @@ export default function SignupPage() {
 
           {success ? (
             <div className="p-4 bg-green-500/10 border border-green-500 rounded text-green-500 text-center">
-              Account created! Check your email to confirm. Redirecting to login...
+              <p className="font-medium">Account created successfully!</p>
+              <p className="text-sm mt-2">Redirecting...</p>
             </div>
           ) : (
             <form onSubmit={handleSignup} className="space-y-4">
@@ -93,6 +134,7 @@ export default function SignupPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
+                  disabled={isLoading}
                 />
               </div>
 
@@ -104,7 +146,10 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  disabled={isLoading}
+                  minLength={6}
                 />
+                <p className="text-xs text-muted-foreground mt-1">At least 6 characters</p>
               </div>
 
               <div>
@@ -115,6 +160,7 @@ export default function SignupPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
                   required
+                  disabled={isLoading}
                 />
               </div>
 

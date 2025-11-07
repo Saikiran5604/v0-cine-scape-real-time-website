@@ -3,19 +3,82 @@
 import { useEffect, useState } from "react"
 import { Header } from "@/components/header"
 import { useRouter } from "next/navigation"
-import { createClientSupabaseClient } from "@/lib/supabase-client"
+import { createClient } from "@/lib/supabase/client"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+
+interface Rating {
+  id: number
+  movie_id: number
+  rating: number
+  created_at: string
+}
+
+const cinematicQuotes = [
+  {
+    quote: "Here's looking at you, kid.",
+    movie: "Casablanca",
+    year: "1942",
+  },
+  {
+    quote: "May the Force be with you.",
+    movie: "Star Wars",
+    year: "1977",
+  },
+  {
+    quote: "I'm going to make him an offer he can't refuse.",
+    movie: "The Godfather",
+    year: "1972",
+  },
+  {
+    quote: "You talking to me?",
+    movie: "Taxi Driver",
+    year: "1976",
+  },
+  {
+    quote: "Life is like a box of chocolates. You never know what you're gonna get.",
+    movie: "Forrest Gump",
+    year: "1994",
+  },
+  {
+    quote: "I'll be back.",
+    movie: "The Terminator",
+    year: "1984",
+  },
+  {
+    quote: "Why so serious?",
+    movie: "The Dark Knight",
+    year: "2008",
+  },
+  {
+    quote: "Just keep swimming.",
+    movie: "Finding Nemo",
+    year: "2003",
+  },
+  {
+    quote: "There's no place like home.",
+    movie: "The Wizard of Oz",
+    year: "1939",
+  },
+  {
+    quote: "I see dead people.",
+    movie: "The Sixth Sense",
+    year: "1999",
+  },
+]
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [stats, setStats] = useState({ ratings: 0, watchlist: 0 })
+  const [randomQuote, setRandomQuote] = useState(cinematicQuotes[0])
   const router = useRouter()
-  const supabase = createClientSupabaseClient()
+  const supabase = createClient()
 
   useEffect(() => {
+    const quote = cinematicQuotes[Math.floor(Math.random() * cinematicQuotes.length)]
+    setRandomQuote(quote)
+
     const fetchProfile = async () => {
       setIsLoading(true)
       const {
@@ -33,23 +96,6 @@ export default function ProfilePage() {
       const { data: profileData } = await supabase.from("users").select("*").eq("id", user.id).single()
 
       setProfile(profileData)
-
-      // Fetch stats
-      const { count: ratingsCount } = await supabase
-        .from("ratings")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-
-      const { count: watchlistCount } = await supabase
-        .from("watchlist")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-
-      setStats({
-        ratings: ratingsCount || 0,
-        watchlist: watchlistCount || 0,
-      })
-
       setIsLoading(false)
     }
 
@@ -58,7 +104,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    router.push("/")
+    window.location.href = "/"
   }
 
   if (isLoading) {
@@ -76,7 +122,27 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="relative mb-12 overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-accent/20 to-primary/10 p-8 md:p-12 shadow-xl">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10">
+            <div className="absolute top-4 left-4 text-9xl font-serif text-primary">"</div>
+            <div className="absolute bottom-4 right-4 text-9xl font-serif text-accent rotate-180">"</div>
+          </div>
+
+          <div className="relative z-10">
+            <p className="text-2xl md:text-3xl font-serif italic text-foreground mb-6 text-center leading-relaxed">
+              {randomQuote.quote}
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <div className="h-px w-12 bg-primary/50" />
+              <p className="text-sm md:text-base text-muted-foreground font-medium">
+                {randomQuote.movie} <span className="text-primary">({randomQuote.year})</span>
+              </p>
+              <div className="h-px w-12 bg-primary/50" />
+            </div>
+          </div>
+        </div>
+
         <Card className="p-8">
           <h1 className="text-3xl font-bold text-foreground mb-8">My Profile</h1>
 
@@ -89,18 +155,6 @@ export default function ProfilePage() {
             <div>
               <p className="text-muted-foreground text-sm mb-2">Username</p>
               <p className="text-foreground font-medium">{profile?.username || "Not set"}</p>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-4 py-6 border-y border-border">
-              <div>
-                <p className="text-muted-foreground text-sm mb-1">Movies Rated</p>
-                <p className="text-3xl font-bold text-primary">{stats.ratings}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground text-sm mb-1">Watchlist</p>
-                <p className="text-3xl font-bold text-accent">{stats.watchlist}</p>
-              </div>
             </div>
 
             <div className="pt-6">
