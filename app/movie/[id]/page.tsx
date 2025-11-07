@@ -27,7 +27,9 @@ export default function MovieDetailPage() {
         const response = await fetch(`/api/movies/${movieId}`)
 
         if (!response.ok) {
-          console.error("[v0] API response not OK:", response.status)
+          console.error("[v0] API response not OK:", response.status, response.statusText)
+          const errorData = await response.json().catch(() => ({}))
+          console.error("[v0] Error data:", errorData)
           setMovie(null)
           setIsLoading(false)
           return
@@ -36,10 +38,11 @@ export default function MovieDetailPage() {
         const movieData = await response.json()
         console.log("[v0] Movie data received:", movieData)
 
-        if (movieData) {
+        if (movieData && movieData.id && !movieData.error) {
+          console.log("[v0] Setting movie state with:", movieData.title)
           setMovie(movieData)
         } else {
-          console.error("[v0] No movie data returned for ID:", movieId)
+          console.error("[v0] Invalid movie data format or contains error:", movieData)
           setMovie(null)
         }
       } catch (error) {
