@@ -11,9 +11,13 @@ import Image from "next/image"
 interface WatchlistItem {
   id: number
   movie_id: number
-  movie_title: string
-  movie_poster: string | null
   added_at: string
+  movies: {
+    title: string
+    poster_path: string | null
+    description: string | null
+    rating: number | null
+  }
 }
 
 export default function WatchlistPage() {
@@ -39,7 +43,17 @@ export default function WatchlistPage() {
 
       const { data: watchlist, error } = await supabase
         .from("watchlist")
-        .select("*")
+        .select(`
+          id,
+          movie_id,
+          added_at,
+          movies (
+            title,
+            poster_path,
+            description,
+            rating
+          )
+        `)
         .eq("user_id", user.id)
         .order("added_at", { ascending: false })
 
@@ -94,10 +108,10 @@ export default function WatchlistPage() {
               <div key={item.id} className="group relative">
                 <Link href={`/movie/${item.movie_id}`}>
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-muted">
-                    {item.movie_poster ? (
+                    {item.movies?.poster_path ? (
                       <Image
-                        src={`https://image.tmdb.org/t/p/w500${item.movie_poster}`}
-                        alt={item.movie_title}
+                        src={`https://image.tmdb.org/t/p/w500${item.movies.poster_path}`}
+                        alt={item.movies.title}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -107,7 +121,16 @@ export default function WatchlistPage() {
                       </div>
                     )}
                   </div>
-                  <h3 className="mt-2 text-foreground font-medium line-clamp-2">{item.movie_title}</h3>
+                  <h3 className="mt-2 text-foreground font-medium line-clamp-2">{item.movies?.title}</h3>
+                  {item.movies?.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{item.movies.description}</p>
+                  )}
+                  {item.movies?.rating && (
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-yellow-500">★</span>
+                      <span className="text-sm text-foreground">{item.movies.rating.toFixed(1)}</span>
+                    </div>
+                  )}
                 </Link>
                 <Button
                   variant="destructive"
