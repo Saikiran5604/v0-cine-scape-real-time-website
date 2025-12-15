@@ -233,5 +233,5 @@ For issues or questions:
 - shadcn/ui for beautiful components
 
 ## Contributors
-- D SAIKIRAN REDDY
+- SAIKIRAN REDDY D
 - SAHANA GOWDA B
