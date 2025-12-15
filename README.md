@@ -231,3 +231,7 @@ For issues or questions:
 - Supabase for authentication and database
 - Vercel for hosting and deployment
 - shadcn/ui for beautiful components
+
+## Contributors
+- D SAIKIRAN REDDY
+- SAHANA GOWDA B
